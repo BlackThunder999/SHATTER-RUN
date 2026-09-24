@@ -1,0 +1,849 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>SHATTER RUN: RHYTHM DASH</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    body {
+      background: #04060c;
+      color: #fff;
+      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
+    }
+    #gameCanvas {
+      width: 100vw;
+      height: 100dvh;
+      display: block;
+    }
+
+    /* МЕНЮ */
+    .screen-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      padding: max(20px, env(safe-area-inset-top)) 20px max(24px, env(safe-area-inset-bottom));
+      z-index: 50;
+      background: radial-gradient(circle at center, rgba(14, 22, 40, 0.94) 0%, rgba(4, 6, 12, 0.98) 100%);
+      backdrop-filter: blur(25px);
+      -webkit-backdrop-filter: blur(25px);
+    }
+
+    .game-logo {
+      font-size: 38px;
+      font-weight: 950;
+      letter-spacing: -0.03em;
+      text-align: center;
+      background: linear-gradient(135deg, #00f0ff, #ff0055);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      text-shadow: 0 0 35px rgba(0, 240, 255, 0.4);
+      margin-top: 10px;
+    }
+
+    .level-select-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      width: 100%;
+      max-width: 400px;
+    }
+
+    .level-card {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1.5px solid rgba(255, 255, 255, 0.12);
+      border-radius: 18px;
+      padding: 14px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      transition: transform 0.15s, border-color 0.15s, background 0.15s;
+    }
+    .level-card:active {
+      transform: scale(0.97);
+      border-color: #00f0ff;
+      background: rgba(0, 240, 255, 0.1);
+    }
+
+    .level-title {
+      font-size: 17px;
+      font-weight: 900;
+      letter-spacing: -0.01em;
+    }
+    .level-sub {
+      font-size: 11px;
+      color: #94a3b8;
+      font-weight: 700;
+      margin-top: 2px;
+    }
+
+    .badge-diff {
+      padding: 6px 12px;
+      border-radius: 9999px;
+      font-size: 11px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .diff-easy { background: rgba(48, 209, 88, 0.2); color: #30d158; border: 1px solid #30d158; }
+    .diff-med { background: rgba(255, 149, 0, 0.2); color: #ff9500; border: 1px solid #ff9500; }
+    .diff-hard { background: rgba(255, 59, 48, 0.2); color: #ff3b30; border: 1px solid #ff3b30; box-shadow: 0 0 15px rgba(255,59,48,0.3); }
+
+    /* ХУД В ИГРЕ */
+    #hud-layer {
+      display: none;
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 30;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: max(16px, env(safe-area-inset-top)) 20px max(20px, env(safe-area-inset-bottom));
+    }
+
+    .hud-top-bar {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+    }
+
+    .hud-info-row {
+      display: flex;
+      justify-content: space-between;
+      width: 100%;
+      align-items: center;
+    }
+
+    .hud-chip {
+      background: rgba(15, 23, 42, 0.75);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      backdrop-filter: blur(14px);
+      padding: 6px 14px;
+      border-radius: 9999px;
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    /* ПОЛОСА ПРОГРЕССА (КАК В GD) */
+    .progress-bar-wrap {
+      width: 100%;
+      max-width: 320px;
+      height: 8px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 9999px;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+    }
+    .progress-fill {
+      width: 0%;
+      height: 100%;
+      background: linear-gradient(90deg, #00f0ff, #30d158);
+      border-radius: 9999px;
+      transition: width 0.05s linear;
+    }
+
+    .touch-hints {
+      display: flex;
+      justify-content: space-between;
+      width: 100%;
+      font-size: 12px;
+      font-weight: 800;
+      color: rgba(255, 255, 255, 0.4);
+    }
+
+    .btn-icon-exit {
+      pointer-events: auto;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: #fff;
+      padding: 6px 12px;
+      border-radius: 9999px;
+      font-size: 11px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .btn-big-action {
+      background: #00f0ff;
+      color: #000;
+      border: none;
+      padding: 14px 34px;
+      border-radius: 9999px;
+      font-size: 16px;
+      font-weight: 900;
+      cursor: pointer;
+      box-shadow: 0 0 25px rgba(0, 240, 255, 0.5);
+      transition: transform 0.15s;
+    }
+    .btn-big-action:active { transform: scale(0.93); }
+  </style>
+</head>
+<body onclick="initAudio()">
+
+  <!-- 1. ГЛАВНОЕ МЕНЮ И ВЫБОР УРОВНЕЙ -->
+  <div id="screen-menu" class="screen-overlay">
+    <div>
+      <h1 class="game-logo">SHATTER RUN</h1>
+      <p style="font-size: 12px; color: #94a3b8; text-align: center; margin-top: 4px; font-weight: 700; letter-spacing: 0.1em;">RHYTHM DESTRUCTION PLATFORMER</p>
+    </div>
+
+    <div class="level-select-grid">
+      <!-- УРОВЕНЬ 1 -->
+      <div class="level-card" onclick="selectAndStartLevel(0)">
+        <div>
+          <div class="level-title">1. NEON OVERDRIVE</div>
+          <div class="level-sub">BPM: 125 • Рекорд: <span id="rec-0">0%</span></div>
+        </div>
+        <div class="badge-diff diff-easy">Easy</div>
+      </div>
+
+      <!-- УРОВЕНЬ 2 -->
+      <div class="level-card" onclick="selectAndStartLevel(1)">
+        <div>
+          <div class="level-title">2. CRYSTAL BREAK</div>
+          <div class="level-sub">BPM: 140 • Рекорд: <span id="rec-1">0%</span></div>
+        </div>
+        <div class="badge-diff diff-med">Medium</div>
+      </div>
+
+      <!-- УРОВЕНЬ 3 -->
+      <div class="level-card" onclick="selectAndStartLevel(2)">
+        <div>
+          <div class="level-title">3. CYBER HELL</div>
+          <div class="level-sub">BPM: 160 • Рекорд: <span id="rec-2">0%</span></div>
+        </div>
+        <div class="badge-diff diff-hard">Hardcore</div>
+      </div>
+    </div>
+
+    <div style="font-size: 11px; color: #64748b; text-align: center;">
+      Нажмите на уровень для старта • Тапните экран для звука
+    </div>
+  </div>
+
+  <!-- 2. ЭКРАН СМЕРТИ -->
+  <div id="screen-death" class="screen-overlay" style="display:none; justify-content:center; gap:20px;">
+    <h2 style="font-size: 36px; font-weight: 950; color: #ff0055; text-shadow:0 0 30px #ff0055;">РАЗБИТ!</h2>
+    <div id="death-percent" style="font-size: 28px; font-weight: 900; color: #00f0ff;">42%</div>
+    <p id="death-tip" style="font-size: 13px; color: #94a3b8; max-width: 280px; text-align:center; line-height: 1.4;">
+      Хрупкие монолиты разбиваются с помощью DASH!
+    </p>
+    <div style="display:flex; gap:12px; margin-top:10px;">
+      <button class="btn-big-action" onclick="retryLevel()">ЗАНОВО</button>
+      <button class="btn-icon-exit" style="padding:14px 24px; font-size:14px;" onclick="returnToMenu()">МЕНЮ</button>
+    </div>
+  </div>
+
+  <!-- 3. ЭКРАН ПОБЕДЫ -->
+  <div id="screen-win" class="screen-overlay" style="display:none; justify-content:center; gap:20px;">
+    <h2 style="font-size: 38px; font-weight: 950; color: #30d158; text-shadow:0 0 30px #30d158;">100% ПРОЙДЕНО!</h2>
+    <p style="font-size: 15px; color: #e2e8f0; font-weight: 800;">Уровень зачищен в идеальный бит!</p>
+    <button class="btn-big-action" onclick="returnToMenu()">К ВЫБОРУ УРОВНЕЙ</button>
+  </div>
+
+  <!-- 4. ИГРОВОЙ ХУД -->
+  <div id="hud-layer">
+    <div class="hud-top-bar">
+      <div class="hud-info-row">
+        <button class="btn-icon-exit" onclick="returnToMenu()">◀ МЕНЮ</button>
+        <div class="hud-chip" id="hud-lvl-name">LEVEL 1</div>
+        <div class="hud-chip" id="hud-percent" style="color:#00f0ff;">0%</div>
+      </div>
+      <div class="progress-bar-wrap">
+        <div id="hud-progress-fill" class="progress-fill"></div>
+      </div>
+    </div>
+
+    <div class="touch-hints">
+      <div>◀ ЛЕВО: ПРЫЖОК</div>
+      <div>ПРАВО: DASH (РАЗБИТЬ) ▶</div>
+    </div>
+  </div>
+
+  <canvas id="gameCanvas"></canvas>
+
+  <script>
+    /* -------------------------------------------------------------
+       1. МУЗЫКАЛЬНЫЙ ДВИЖОК: ТОЧНЫЙ BPM СИНТЕЗАТОР (WEB AUDIO API)
+       ------------------------------------------------------------- */
+    let audioCtx = null;
+    let musicTimer = null;
+    let currentBeatStep = 0;
+    let isMusicPlaying = false;
+
+    function initAudio() {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+    }
+
+    // Звук бочки (Kick) — под прыжки
+    function playKick(time) {
+      if (!audioCtx) return;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.frequency.setValueAtTime(140, time);
+      osc.frequency.exponentialRampToValueAtTime(35, time + 0.12);
+      gain.gain.setValueAtTime(0.7, time);
+      gain.gain.exponentialRampToValueAtTime(0.01, time + 0.13);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start(time);
+      osc.stop(time + 0.14);
+    }
+
+    // Звук снейра (Snare) — под даши и сокрушение
+    function playSnare(time) {
+      if (!audioCtx) return;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(260, time);
+      osc.frequency.exponentialRampToValueAtTime(80, time + 0.14);
+      gain.gain.setValueAtTime(0.45, time);
+      gain.gain.exponentialRampToValueAtTime(0.01, time + 0.15);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start(time);
+      osc.stop(time + 0.15);
+    }
+
+    // Хэт (Hi-hat) — для драйва ритма
+    function playHat(time) {
+      if (!audioCtx) return;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'highpass';
+      osc.frequency.setValueAtTime(8000, time);
+      gain.gain.setValueAtTime(0.12, time);
+      gain.gain.exponentialRampToValueAtTime(0.01, time + 0.04);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start(time);
+      osc.stop(time + 0.05);
+    }
+
+    // Басовый синтезатор (Bass Synth)
+    function playBassNote(freq, time) {
+      if (!audioCtx) return;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(freq, time);
+      gain.gain.setValueAtTime(0.2, time);
+      gain.gain.exponentialRampToValueAtTime(0.01, time + 0.22);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start(time);
+      osc.stop(time + 0.23);
+    }
+
+    function startRhythmTrack(bpm) {
+      stopRhythmTrack();
+      initAudio();
+      isMusicPlaying = true;
+      currentBeatStep = 0;
+      const stepDuration = (60 / bpm) / 4; // 16-е доли
+
+      const bassNotes = [55, 55, 65, 55, 48, 48, 55, 73];
+
+      musicTimer = setInterval(() => {
+        if (!isMusicPlaying || !audioCtx) return;
+        const now = audioCtx.currentTime;
+
+        // Кик каждые 4 шага (на 1, 5, 9, 13)
+        if (currentBeatStep % 4 === 0) playKick(now);
+        // Снейр со смещением (на 3, 7, 11, 15)
+        if (currentBeatStep % 8 === 4) playSnare(now);
+        // Хэты каждые 2 шага
+        if (currentBeatStep % 2 === 0) playHat(now);
+        // Басовая мелодия
+        if (currentBeatStep % 4 === 0) {
+          const note = bassNotes[(currentBeatStep / 4) % bassNotes.length];
+          playBassNote(note, now);
+        }
+
+        currentBeatStep++;
+      }, stepDuration * 1000);
+    }
+
+    function stopRhythmTrack() {
+      isMusicPlaying = false;
+      if (musicTimer) clearInterval(musicTimer);
+      musicTimer = null;
+    }
+
+    /* SFX ЭФФЕКТЫ */
+    function sfxJump() {
+      if (!audioCtx) return;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.frequency.setValueAtTime(320, audioCtx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(580, audioCtx.currentTime + 0.12);
+      gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.12);
+      osc.connect(gain); gain.connect(audioCtx.destination);
+      osc.start(); osc.stop(audioCtx.currentTime + 0.13);
+    }
+
+    function sfxDash() {
+      if (!audioCtx) return;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(700, audioCtx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(200, audioCtx.currentTime + 0.15);
+      gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+      osc.connect(gain); gain.connect(audioCtx.destination);
+      osc.start(); osc.stop(audioCtx.currentTime + 0.16);
+    }
+
+    function sfxShatter() {
+      if (!audioCtx) return;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(160, audioCtx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(30, audioCtx.currentTime + 0.28);
+      gain.gain.setValueAtTime(0.6, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.28);
+      osc.connect(gain); gain.connect(audioCtx.destination);
+      osc.start(); osc.stop(audioCtx.currentTime + 0.29);
+    }
+
+    function sfxDeath() {
+      if (!audioCtx) return;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(90, audioCtx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(20, audioCtx.currentTime + 0.4);
+      gain.gain.setValueAtTime(0.6, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+      osc.connect(gain); gain.connect(audioCtx.destination);
+      osc.start(); osc.stop(audioCtx.currentTime + 0.41);
+    }
+
+    /* -------------------------------------------------------------
+       2. ДАННЫЕ 3-Х АВТОРСКИХ УРОВНЕЙ (СИНХРОНИЗИРОВАННЫХ ПОД БИТ)
+       ------------------------------------------------------------- */
+    const LEVELS = [
+      {
+        id: 0,
+        name: "NEON OVERDRIVE",
+        bpm: 125,
+        speed: 7.2,
+        color: "#00f0ff",
+        groundColor: "#0f172a",
+        totalLength: 7800,
+        // Сетка препятствий: t=тип ('s'-шип, 'c'-кристалл под даш, 'b'-монолит), step=доля бита
+        pattern: [
+          { s: 6, t: 's' }, { s: 10, t: 'c' }, { s: 14, t: 's' }, { s: 18, t: 'c' },
+          { s: 22, t: 's' }, { s: 26, t: 's' }, { s: 30, t: 'c' }, { s: 36, t: 'b' },
+          { s: 42, t: 'c' }, { s: 46, t: 'c' }, { s: 52, t: 's' }, { s: 58, t: 'b' },
+          { s: 64, t: 'c' }, { s: 70, t: 's' }, { s: 74, t: 'c' }, { s: 80, t: 's' },
+          { s: 86, t: 'c' }, { s: 92, t: 'b' }, { s: 98, t: 'c' }, { s: 104, t: 's' }
+        ]
+      },
+      {
+        id: 1,
+        name: "CRYSTAL BREAK",
+        bpm: 140,
+        speed: 8.2,
+        color: "#ff9500",
+        groundColor: "#1e130a",
+        totalLength: 9200,
+        pattern: [
+          { s: 4, t: 'c' }, { s: 8, t: 's' }, { s: 12, t: 'c' }, { s: 16, t: 'c' },
+          { s: 20, t: 'b' }, { s: 24, t: 's' }, { s: 28, t: 'c' }, { s: 32, t: 's' },
+          { s: 36, t: 'c' }, { s: 40, t: 'b' }, { s: 44, t: 'c' }, { s: 48, t: 'c' },
+          { s: 52, t: 's' }, { s: 56, t: 's' }, { s: 60, t: 'c' }, { s: 64, t: 'b' },
+          { s: 70, t: 'c' }, { s: 76, t: 'c' }, { s: 82, t: 's' }, { s: 88, t: 'c' }
+        ]
+      },
+      {
+        id: 2,
+        name: "CYBER HELL",
+        bpm: 160,
+        speed: 9.6,
+        color: "#ff0055",
+        groundColor: "#1c0510",
+        totalLength: 11000,
+        pattern: [
+          { s: 4, t: 's' }, { s: 6, t: 'c' }, { s: 8, t: 's' }, { s: 10, t: 'c' },
+          { s: 14, t: 'b' }, { s: 18, t: 'c' }, { s: 20, t: 'c' }, { s: 24, t: 's' },
+          { s: 26, t: 's' }, { s: 30, t: 'c' }, { s: 34, t: 'b' }, { s: 38, t: 'c' },
+          { s: 42, t: 's' }, { s: 46, t: 'c' }, { s: 50, t: 'c' }, { s: 54, t: 'b' },
+          { s: 58, t: 's' }, { s: 62, t: 's' }, { s: 66, t: 'c' }, { s: 70, t: 'c' }
+        ]
+      }
+    ];
+
+    let records = JSON.parse(localStorage.getItem('shatter_run_records') || '[0, 0, 0]');
+
+    function updateRecordsUI() {
+      records.forEach((r, idx) => {
+        const el = document.getElementById(`rec-${idx}`);
+        if (el) el.innerText = `${r}%`;
+      });
+    }
+    updateRecordsUI();
+
+    /* -------------------------------------------------------------
+       3. ДВИЖОК ХОЛСТА И СОСТОЯНИЯ ИГРЫ
+       ------------------------------------------------------------- */
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    function resize() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+    resize();
+    window.addEventListener('resize', resize);
+
+    const GROUND_H = 95;
+    let currentLvlIndex = 0;
+    let gameState = 'menu'; // 'menu' | 'play' | 'death' | 'win'
+    let cameraX = 0;
+    let hitStop = 0;
+
+    const player = {
+      x: 100,
+      y: 0,
+      size: 34,
+      vy: 0,
+      onGround: false,
+      isDashing: false,
+      dashTimer: 0,
+      trail: [],
+      reset() {
+        this.x = 100;
+        this.y = canvas.height - GROUND_H - this.size;
+        this.vy = 0;
+        this.onGround = true;
+        this.isDashing = false;
+        this.dashTimer = 0;
+        this.trail = [];
+      },
+      jump() {
+        if (this.onGround && !this.isDashing) {
+          this.vy = -14.6;
+          this.onGround = false;
+          sfxJump();
+        }
+      },
+      dash() {
+        if (!this.isDashing) {
+          this.isDashing = true;
+          this.dashTimer = 16;
+          this.vy = 0;
+          sfxDash();
+        }
+      }
+    };
+
+    let obstacles = [];
+    let shards = [];
+
+    function buildObstaclesFromPattern(lvl) {
+      obstacles = [];
+      const beatDist = (lvl.speed * 60 / lvl.bpm) * 4; // Дистанция между долями
+
+      lvl.pattern.forEach(p => {
+        const posX = 450 + p.s * beatDist;
+        if (p.t === 's') {
+          // Одиночный шип под кик
+          obstacles.push({ type: 'spike', x: posX, y: canvas.height - GROUND_H - 32, w: 32, h: 32, color: '#ef4444' });
+        } else if (p.t === 'c') {
+          // Хрупкий кристалл под снейр
+          obstacles.push({ type: 'crystal', x: posX, y: canvas.height - GROUND_H - 72, w: 28, h: 72, color: '#ff9500' });
+        } else if (p.t === 'b') {
+          // Непробиваемый монолит
+          obstacles.push({ type: 'solid', x: posX, y: canvas.height - GROUND_H - 50, w: 42, h: 50, color: '#475569' });
+        }
+      });
+    }
+
+    function createShatter(x, y, w, h, col) {
+      sfxShatter();
+      hitStop = 7;
+      for (let i = 0; i < 26; i++) {
+        shards.push({
+          x: x + Math.random() * w,
+          y: y + Math.random() * h,
+          vx: 5 + (Math.random() - 0.5) * 14,
+          vy: (Math.random() - 0.5) * 12,
+          size: 4 + Math.random() * 8,
+          color: col,
+          life: 1.0,
+          rot: Math.random() * Math.PI,
+          vRot: (Math.random() - 0.5) * 0.3
+        });
+      }
+    }
+
+    /* -------------------------------------------------------------
+       4. ПЕРЕКЛЮЧЕНИЕ ЭКРАНОВ И УРОВНЕЙ
+       ------------------------------------------------------------- */
+    function selectAndStartLevel(idx) {
+      initAudio();
+      currentLvlIndex = idx;
+      const lvl = LEVELS[idx];
+
+      document.getElementById('screen-menu').style.display = 'none';
+      document.getElementById('screen-death').style.display = 'none';
+      document.getElementById('screen-win').style.display = 'none';
+      document.getElementById('hud-layer').style.display = 'flex';
+      document.getElementById('hud-lvl-name').innerText = lvl.name;
+
+      player.reset();
+      buildObstaclesFromPattern(lvl);
+      shards = [];
+      gameState = 'play';
+
+      startRhythmTrack(lvl.bpm);
+    }
+
+    function retryLevel() {
+      selectAndStartLevel(currentLvlIndex);
+    }
+
+    function returnToMenu() {
+      stopRhythmTrack();
+      gameState = 'menu';
+      document.getElementById('hud-layer').style.display = 'none';
+      document.getElementById('screen-death').style.display = 'none';
+      document.getElementById('screen-win').style.display = 'none';
+      document.getElementById('screen-menu').style.display = 'flex';
+      updateRecordsUI();
+    }
+
+    function die(reason) {
+      stopRhythmTrack();
+      sfxDeath();
+      gameState = 'death';
+
+      const lvl = LEVELS[currentLvlIndex];
+      const pct = Math.min(100, Math.floor((player.x / lvl.totalLength) * 100));
+
+      if (pct > records[currentLvlIndex]) {
+        records[currentLvlIndex] = pct;
+        localStorage.setItem('shatter_run_records', JSON.stringify(records));
+      }
+
+      createShatter(player.x, player.y, player.size, player.size, lvl.color);
+
+      document.getElementById('hud-layer').style.display = 'none';
+      document.getElementById('death-percent').innerText = `${pct}%`;
+      document.getElementById('death-tip').innerText = reason;
+      document.getElementById('screen-death').style.display = 'flex';
+    }
+
+    function win() {
+      stopRhythmTrack();
+      gameState = 'win';
+      records[currentLvlIndex] = 100;
+      localStorage.setItem('shatter_run_records', JSON.stringify(records));
+
+      document.getElementById('hud-layer').style.display = 'none';
+      document.getElementById('screen-win').style.display = 'flex';
+    }
+
+    /* -------------------------------------------------------------
+       5. СЕНСОРНОЕ УПРАВЛЕНИЕ (МУЛЬТИТАЧ)
+       ------------------------------------------------------------- */
+    window.addEventListener('touchstart', (e) => {
+      initAudio();
+      if (gameState !== 'play') return;
+
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        const t = e.changedTouches[i];
+        if (t.clientX < window.innerWidth / 2) {
+          player.jump(); // Левая зона — прыжок
+        } else {
+          player.dash(); // Правая зона — даш/сокрушение
+        }
+      }
+    }, { passive: false });
+
+    window.addEventListener('keydown', (e) => {
+      initAudio();
+      if (gameState !== 'play') return;
+      if (e.code === 'Space' || e.code === 'ArrowUp') player.jump();
+      if (e.code === 'KeyX' || e.code === 'ShiftLeft') player.dash();
+    });
+
+    /* -------------------------------------------------------------
+       6. ГЛАВНЫЙ ЦИКЛ ОБНОВЛЕНИЯ И ОТРИСОВКИ
+       ------------------------------------------------------------- */
+    function gameLoop() {
+      requestAnimationFrame(gameLoop);
+
+      if (hitStop > 0) {
+        hitStop--;
+        return;
+      }
+
+      const lvl = LEVELS[currentLvlIndex];
+
+      if (gameState === 'play') {
+        const curSpeed = player.isDashing ? lvl.speed * 1.75 : lvl.speed;
+        player.x += curSpeed;
+
+        // Физика прыжка и гравитации
+        if (player.isDashing) {
+          player.dashTimer--;
+          if (player.dashTimer <= 0) player.isDashing = false;
+        } else {
+          player.vy += 0.76;
+          player.y += player.vy;
+        }
+
+        const floorY = canvas.height - GROUND_H - player.size;
+        if (player.y >= floorY) {
+          player.y = floorY;
+          player.vy = 0;
+          player.onGround = true;
+        }
+
+        player.trail.push({ x: player.x, y: player.y, isDash: player.isDashing });
+        if (player.trail.length > 10) player.trail.shift();
+
+        cameraX = player.x - 130;
+
+        // Прогресс в %
+        const pct = Math.min(100, Math.floor((player.x / lvl.totalLength) * 100));
+        document.getElementById('hud-percent').innerText = `${pct}%`;
+        document.getElementById('hud-progress-fill').style.width = `${pct}%`;
+
+        // Победа
+        if (player.x >= lvl.totalLength) {
+          win();
+        }
+
+        // Коллизии с препятствиями
+        for (let i = obstacles.length - 1; i >= 0; i--) {
+          const obs = obstacles[i];
+          if (
+            player.x + player.size > obs.x &&
+            player.x < obs.x + obs.w &&
+            player.y + player.size > obs.y &&
+            player.y < obs.y + obs.h
+          ) {
+            if (obs.type === 'crystal') {
+              if (player.isDashing) {
+                createShatter(obs.x, obs.y, obs.w, obs.h, obs.color);
+                obstacles.splice(i, 1);
+              } else {
+                die("Кристалл разбивается ТОЛЬКО с помощью DASH!");
+              }
+            } else if (obs.type === 'solid') {
+              die("Непробиваемый монолит! Его нужно было ПЕРЕПРЫГНУТЬ!");
+            } else if (obs.type === 'spike') {
+              die("Острые шипы! Прыгай в ритм!");
+            }
+          }
+        }
+      }
+
+      /* ОТРИСОВКА КАДРА */
+      ctx.fillStyle = '#04060c';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      ctx.save();
+      ctx.translate(-cameraX, 0);
+
+      // Пол и неоновая разметка
+      ctx.fillStyle = lvl ? lvl.groundColor : '#0f172a';
+      ctx.fillRect(cameraX - 60, canvas.height - GROUND_H, canvas.width + 120, GROUND_H);
+
+      ctx.strokeStyle = lvl ? lvl.color : '#00f0ff';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(cameraX - 60, canvas.height - GROUND_H);
+      ctx.lineTo(cameraX + canvas.width + 120, canvas.height - GROUND_H);
+      ctx.stroke();
+
+      // Шлейф персонажа
+      player.trail.forEach((t, idx) => {
+        ctx.fillStyle = t.isDash ? `rgba(255, 149, 0, ${idx / 12})` : `rgba(0, 240, 255, ${idx / 16})`;
+        ctx.fillRect(t.x, t.y, player.size, player.size);
+      });
+
+      // Персонаж
+      if (gameState === 'play') {
+        ctx.fillStyle = player.isDashing ? '#ff9500' : lvl.color;
+        ctx.shadowColor = player.isDashing ? '#ff9500' : lvl.color;
+        ctx.shadowBlur = player.isDashing ? 25 : 16;
+        ctx.fillRect(player.x, player.y, player.size, player.size);
+        ctx.shadowBlur = 0;
+      }
+
+      // Препятствия
+      obstacles.forEach(obs => {
+        ctx.shadowColor = obs.color;
+        ctx.shadowBlur = 10;
+        ctx.fillStyle = obs.color;
+
+        if (obs.type === 'spike') {
+          ctx.beginPath();
+          ctx.moveTo(obs.x, obs.y + obs.h);
+          ctx.lineTo(obs.x + obs.w / 2, obs.y);
+          ctx.lineTo(obs.x + obs.w, obs.y + obs.h);
+          ctx.closePath();
+          ctx.fill();
+        } else if (obs.type === 'crystal') {
+          ctx.fillRect(obs.x, obs.y, obs.w, obs.h);
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = 1.5;
+          ctx.strokeRect(obs.x + 3, obs.y + 3, obs.w - 6, obs.h - 6);
+        } else {
+          ctx.fillRect(obs.x, obs.y, obs.w, obs.h);
+          ctx.strokeStyle = '#334155';
+          ctx.strokeRect(obs.x, obs.y, obs.w, obs.h);
+        }
+        ctx.shadowBlur = 0;
+      });
+
+      // Осколки разрушения
+      for (let s = shards.length - 1; s >= 0; s--) {
+        const sh = shards[s];
+        sh.x += sh.vx;
+        sh.y += sh.vy;
+        sh.vy += 0.35;
+        sh.rot += sh.vRot;
+        sh.life -= 0.02;
+
+        ctx.save();
+        ctx.translate(sh.x, sh.y);
+        ctx.rotate(sh.rot);
+        ctx.fillStyle = sh.color;
+        ctx.globalAlpha = Math.max(0, sh.life);
+        ctx.fillRect(-sh.size / 2, -sh.size / 2, sh.size, sh.size);
+        ctx.restore();
+
+        if (sh.life <= 0) shards.splice(s, 1);
+      }
+
+      ctx.restore();
+    }
+
+    gameLoop();
+  </script>
+</body>
+</html>
